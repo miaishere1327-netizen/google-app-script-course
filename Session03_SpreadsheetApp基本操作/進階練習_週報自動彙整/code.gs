@@ -71,11 +71,20 @@ function 建立本週週報() {
       Logger.log("✅ " + 表名 + " 已建立");
     });
 
-    SpreadsheetApp.getUi().alert("✅ 本週週報工作表已為 " + 部門.length + " 個部門建立！");
+    // 安全呼叫 UI 視窗
+    try {
+      SpreadsheetApp.getUi().alert("✅ 本週週報工作表已為 " + 部門.length + " 個部門建立！");
+    } catch (e) {
+      Logger.log("✅ 週報工作表建立完成 (於背景執行)");
+    }
 
   } catch (錯誤) {
-    Logger.log("❌ 錯誤：" + 錯誤.message);
-    SpreadsheetApp.getUi().alert("❌ 錯誤：" + 錯誤.message);
+    Logger.log("❌ 發生錯誤：" + 錯誤.message);
+    try {
+      SpreadsheetApp.getUi().alert("❌ 錯誤：" + 錯誤.message);
+    } catch (e) {
+      // 在背景執行環境下忽略 UI 錯誤
+    }
   }
 }
 
@@ -135,10 +144,15 @@ function 彙整週報() {
       總覽表.setColumnWidth(c, 目前寬度 + 30); // 增加 30 像素緩衝
     }
 
-    SpreadsheetApp.getUi().alert("✅ 週報彙整完成！請查看「週報總覽」工作表。");
+    // 安全呼叫 UI 視窗
+    try {
+      SpreadsheetApp.getUi().alert("✅ 週報彙整完成！請查看「週報總覽」工作表。");
+    } catch (e) {
+      Logger.log("✅ 週報彙整完成 (於背景執行)");
+    }
 
   } catch (錯誤) {
-    Logger.log("❌ 錯誤：" + 錯誤.message);
+    Logger.log("❌ 彙整錯誤：" + 錯誤.message);
   }
 }
 
@@ -156,7 +170,11 @@ function 設定週五自動彙整() {
     .atHour(17)
     .create();
 
-  SpreadsheetApp.getUi().alert("✅ 每週五 17:00 自動彙整已設定！");
+  try {
+    SpreadsheetApp.getUi().alert("✅ 每週五 17:00 自動彙整已設定！");
+  } catch (e) {
+    Logger.log("✅ 觸發器已設定");
+  }
 }
 
 /**
@@ -173,7 +191,11 @@ function 設定週一自動建立() {
     .atHour(8)
     .create();
 
-  SpreadsheetApp.getUi().alert("✅ 每週一 08:00 自動建立週報已設定！");
+  try {
+    SpreadsheetApp.getUi().alert("✅ 每週一 08:00 自動建立週報已設定！");
+  } catch (e) {
+    Logger.log("✅ 觸發器已設定");
+  }
 }
 
 /**
@@ -273,9 +295,17 @@ function 新增週報範例資料() {
   });
 
   if (有更新) {
-    SpreadsheetApp.getUi().alert("✅ 已成功為各部門（業務、行銷、研發、人資、財務）填入「專屬」範例資料！\n現在您可以點選「彙整所有週報」來測試彙整功能。");
+    try {
+      SpreadsheetApp.getUi().alert("✅ 已成功為各部門（業務、行銷、研發、人資、財務）填入「專屬」範例資料！\n現在您可以點選「彙整所有週報」來測試彙整功能。");
+    } catch (e) {
+      Logger.log("✅ 範例資料填入完成");
+    }
   } else {
-    SpreadsheetApp.getUi().alert("⚠️ 找不到週報工作表，請先執行「建立本週週報」。");
+    try {
+      SpreadsheetApp.getUi().alert("⚠️ 找不到週報工作表，請先執行「建立本週週報」。");
+    } catch (e) {
+      Logger.log("⚠️ 找不到週報工作表");
+    }
   }
 }
 
