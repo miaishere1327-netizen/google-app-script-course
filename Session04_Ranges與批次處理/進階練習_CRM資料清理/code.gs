@@ -24,6 +24,7 @@ function 批次驗證客戶資料() {
       var 聯絡人 = String(資料[i][1]).trim();
       var Email = String(資料[i][2]).trim();
       var 電話 = String(資料[i][3]).trim();
+      var 統編 = String(資料[i][7] || "").trim(); // 新增統編
       var 錯誤 = [];
 
       // 檢查必填
@@ -44,9 +45,16 @@ function 批次驗證客戶資料() {
         }
       }
 
-      // 驗證電話（台灣格式）
+      // 驗證電話 (台灣格式)
       if (電話 && !/^0[0-9\-]{8,12}$/.test(電話.replace(/\s/g, ""))) {
         錯誤.push("電話格式可疑");
+      }
+
+      // --- 新增：驗證統編 (8 碼數字) ---
+      if (統編 && !/^\d{8}$/.test(統編)) {
+        錯誤.push("統編格式錯誤 (應為 8 碼數字)");
+      } else if (!統編) {
+        錯誤.push("統編空白");
       }
 
       var 狀態 = 錯誤.length === 0 ? "✅ 正常" : "⚠️ " + 錯誤.join("；");
@@ -54,25 +62,22 @@ function 批次驗證客戶資料() {
       if (錯誤.length > 0) 問題數++;
     }
 
-    // 批次寫入驗證結果到 H 欄
-    sheet.getRange("H1").setValue("驗證結果").setFontWeight("bold");
-    sheet.getRange(2, 8, 驗證結果.length, 1).setValues(驗證結果);
+    // 批次寫入驗證結果到 I 欄 (第 9 欄)
+    sheet.getRange("I1").setValue("驗證結果").setFontWeight("bold");
+    sheet.getRange(2, 9, 驗證結果.length, 1).setValues(驗證結果);
 
-    // 標示有問題的列（改用批次寫入背景色，效能大幅提升並確保 UI 更新）
+    // 標示有問題的列
     var 背景色 = [];
     for (var j = 0; j < 驗證結果.length; j++) {
-      if (驗證結果[j][0].indexOf("⚠️") >= 0) {
-        背景色.push(["#fff3e0", "#fff3e0", "#fff3e0", "#fff3e0", "#fff3e0", "#fff3e0", "#fff3e0", "#fff3e0"]);
-      } else {
-        背景色.push(["#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff"]);
-      }
+      var rowColor = 驗證結果[j][0].indexOf("⚠️") >= 0 ? "#fff3e0" : "#ffffff";
+      背景色.push([rowColor, rowColor, rowColor, rowColor, rowColor, rowColor, rowColor, rowColor, rowColor]);
     }
     if (背景色.length > 0) {
-      sheet.getRange(2, 1, 背景色.length, 8).setBackgrounds(背景色);
+      sheet.getRange(2, 1, 背景色.length, 9).setBackgrounds(背景色);
     }
 
-    sheet.autoResizeColumn(8);
-    SpreadsheetApp.getUi().alert("✅ 驗證完成！\n\n總筆數：" + 驗證結果.length +
+    sheet.autoResizeColumn(9);
+    safeAlert("✅ 驗證完成！\n\n總筆數：" + 驗證結果.length +
       "\n問題筆數：" + 問題數 + "\n正常筆數：" + (驗證結果.length - 問題數));
 
   } catch (錯誤) { Logger.log("❌ " + 錯誤.message); }
@@ -143,7 +148,7 @@ function 批次清理資料() {
     // 強制同步狀態，確保下一次「驗證」能抓到清理後的正確資料
     SpreadsheetApp.flush();
 
-    SpreadsheetApp.getUi().alert("✅ 清理完成！共修正 " + 清理計數 + " 處\n請點選「批次驗證」更新最新狀態。");
+    safeAlert("✅ 清理完成！共修正 " + 清理計數 + " 處\n請點選「批次驗證」更新最新狀態。");
 
   } catch (錯誤) { Logger.log("❌ " + 錯誤.message); }
 }
@@ -196,25 +201,36 @@ function 初始化客戶資料() {
   var sheet = ss.getSheetByName("客戶資料");
   if (!sheet) sheet = ss.insertSheet("客戶資料"); else sheet.clear();
 
-  var 標題 = [["公司名稱", "聯絡人", "Email", "電話", "地區", "產業", "客戶等級"]];
+  var 標題 = [["公司名稱", "聯絡人", "Email", "電話", "地區", "產業", "客戶等級", "統一編號"]];
   var 資料 = [
-    ["台北科技股份有限公司", "王大明", "wang@taipei-tech.com", "0912345678", "台北", "科技業", "A"],
-    ["新竹電子有限公司", "李小華", "LEE@hsinchu.COM", "0923-456-789", "新竹", "電子業", "B"],
-    ["台中製造公司", " 張美玲 ", "chang@taichung-mfg.com", "04-2234-5678", "台中", "製造業", "A"],
-    ["高雄物流", "陳大文", "chen@kaohsiung", "invalid", "高雄", "物流業", "C"],
-    ["花蓮文創工作室", "", "info@hualien-creative.com", "0389-001-234", "花蓮", "文創", "B"],
-    ["桃園光電科技", "黃志偉", "huang@taoyuan-opto.com", "0956789012", "桃園", "光電", "A"],
-    ["基隆貿易商行", "林采潔", "wang@taipei-tech.com", "02-2456-7890", "基隆", "貿易", "C"],
-    ["宜蘭農產公司", "周建國", "chou@yilan-agri.com", "0398765432", "宜蘭", "農業", "B"]
+    ["台北科技股份有限公司", "王大明", "wang@taipei-tech.com", "0912345678", "台北", "科技業", "A", "12345678"],
+    ["新竹電子有限公司", "李小華", "LEE@hsinchu.COM", "0923-456-789", "新竹", "電子業", "B", "23456789"],
+    ["台中製造公司", " 張美玲 ", "chang@taichung-mfg.com", "04-2234-5678", "台中", "製造業", "A", "34567890"],
+    ["高雄物流", "陳大文", "chen@kaohsiung", "invalid", "高雄", "物流業", "C", "12345"], // 統編長度錯誤
+    ["花蓮文創工作室", "", "info@hualien-creative.com", "0389-001-234", "花蓮", "文創", "B", "ABC12345"], // 統編格式錯誤
+    ["桃園光電科技", "黃志偉", "huang@taoyuan-opto.com", "0956789012", "桃園", "光電", "A", "45678901"],
+    ["基隆貿易商行", "林采潔", "wang@taipei-tech.com", "02-2456-7890", "基隆", "貿易", "C", "56789012"],
+    ["宜蘭農產公司", "周建國", "chou@yilan-agri.com", "0398765432", "宜蘭", "農業", "B", "67890123"]
   ];
 
-  sheet.getRange(1, 1, 1, 7).setValues(標題);
-  sheet.getRange(2, 1, 資料.length, 7).setValues(資料);
-  sheet.getRange("A1:G1").setBackground("#e65100").setFontColor("#fff").setFontWeight("bold");
+  sheet.getRange(1, 1, 1, 8).setValues(標題);
+  sheet.getRange(2, 1, 資料.length, 8).setValues(資料);
+  sheet.getRange("A1:H1").setBackground("#673ab7").setFontColor("#fff").setFontWeight("bold");
   sheet.setFrozenRows(1);
-  for (var c = 1; c <= 7; c++) sheet.autoResizeColumn(c);
+  for (var c = 1; c <= 8; c++) sheet.autoResizeColumn(c);
 
-  SpreadsheetApp.getUi().alert("✅ 客戶資料已建立（含刻意的錯誤資料供驗證練習）");
+  safeAlert("✅ 客戶資料已建立（含刻意的統編錯誤資料供練習）");
+}
+
+/**
+ * 安全顯示提示視窗
+ */
+function safeAlert(message) {
+  try {
+    SpreadsheetApp.getUi().alert(message);
+  } catch (e) {
+    Logger.log("📢 [背景提示] " + message);
+  }
 }
 
 function onOpen() {

@@ -309,12 +309,103 @@ function 新增週報範例資料() {
   }
 }
 
+/**
+ * 進階挑戰：分析完成率、寄送通知、並建立統計圖表
+ */
+function 分析與通知未填寫者() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheets = ss.getSheets();
+  
+  // 1. 部門聯絡人 Email 映射表 (範例用)
+  var 部門聯絡人 = {
+    "業務部": "sales-manager@example.com",
+    "行銷部": "marketing-manager@example.com",
+    "研發部": "rd-manager@example.com",
+    "人資部": "hr-manager@example.com",
+    "財務部": "finance-manager@example.com"
+  };
+
+  var 完成數 = 0;
+  var 總數 = 0;
+  var 統計資料 = [["部門", "狀態", "數值"]]; 
+  var 未填寫清單 = [];
+
+  // 2. 掃描各部門工作表
+  sheets.forEach(function(sheet) {
+    var name = sheet.getName();
+    if (name.indexOf("週報_") !== 0) return;
+    
+    總數++;
+    var 部門名 = name.replace("週報_", "").split("_")[0];
+    
+    // 檢查「完成事項」欄位是否為空 (檢查 B7:B12)
+    var 完成資料 = sheet.getRange(7, 2, 6, 1).getValues();
+    var 是否填寫 = 完成資料.some(function(row) {
+      return row[0] && String(row[0]).trim() !== "";
+    });
+
+    if (是否填寫) {
+      完成數++;
+      統計資料.push([部門名, "已完成", 1]);
+    } else {
+      統計資料.push([部門名, "未填寫", 0]);
+      未填寫清單.push(部門名);
+    }
+  });
+
+  if (總數 === 0) {
+    try { SpreadsheetApp.getUi().alert("⚠️ 找不到任何週報工作表。"); } catch(e) {}
+    return;
+  }
+
+  // 3. 執行 Email 通知 (僅在背景執行或測試時記錄)
+  未填寫清單.forEach(function(部門名) {
+    var email = 部門聯絡人[部門名];
+    if (email) {
+      try {
+        MailApp.sendEmail({
+          to: email,
+          subject: "⚠️ 週報未填寫提醒：" + 部門名,
+          body: "您好，系統偵測到您本週的週報尚未填寫，請儘速完成彙整。謝謝！"
+        });
+        Logger.log("📧 已寄送提醒給：" + 部門名);
+      } catch (e) {
+        Logger.log("❌ Email 寄送失敗 (" + 部門名 + ")：" + e.message);
+      }
+    }
+  });
+
+  // 4. 建立統計圖表
+  var 分析表 = ss.getSheetByName("統計分析");
+  if (分析表) 分析表.clear(); else 分析表 = ss.insertSheet("統計分析");
+  
+  分析表.getRange(1, 1, 統計資料.length, 3).setValues(統計資料);
+  
+  // 建立圖表
+  var chart = 分析表.newChart()
+    .setChartType(Charts.ChartType.PIE)
+    .addRange(分析表.getRange(1, 1, 統計資料.length, 2))
+    .setPosition(2, 5, 0, 0)
+    .setOption("title", "本週報完成率 (完成：" + 完成數 + " / 總計：" + 總數 + ")")
+    .setOption("pieHole", 0.4) // 空心圓餅圖
+    .setOption("colors", ["#4caf50", "#f44336"])
+    .build();
+  
+  分析表.insertChart(chart);
+  分析表.activate();
+
+  try {
+    SpreadsheetApp.getUi().alert("✅ 分析完成！\n已寄送 " + 未填寫清單.length + " 封提醒信，並建立統計圖表。");
+  } catch (e) {}
+}
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("🤖 智慧週報系統")
     .addItem("📋 建立本週週報", "建立本週週報")
     .addItem("📝 新增週報範例資料", "新增週報範例資料")
     .addItem("📊 彙整所有週報", "彙整週報")
+    .addItem("🚨 通知未填者與分析", "分析與通知未填寫者")
     .addSeparator()
     .addItem("⏰ 設定週一自動建立", "設定週一自動建立")
     .addItem("⏰ 設定週五自動彙整", "設定週五自動彙整")

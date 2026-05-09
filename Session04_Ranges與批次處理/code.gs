@@ -21,7 +21,7 @@
 function Range取得方式() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("庫存資料");
   if (!sheet) {
-    SpreadsheetApp.getUi().alert("❌ 請先執行「初始化庫存資料」");
+    safeAlert("❌ 請先執行「初始化庫存資料」");
     return;
   }
 
@@ -227,7 +227,7 @@ function 批次匯入資料() {
 
     // 格式化
     var 標題範圍 = sheet.getRange("A1:H1");
-    標題範圍.setBackground("#ea4335");
+    標題範圍.setBackground("#673ab7"); // 紫色風格
     標題範圍.setFontColor("#ffffff");
     標題範圍.setFontWeight("bold");
     標題範圍.setHorizontalAlignment("center");
@@ -242,7 +242,7 @@ function 批次匯入資料() {
     }
 
     Logger.log("✅ 已匯入 " + 資料.length + " 筆訂單到「" + 表名 + "」");
-    SpreadsheetApp.getUi().alert("✅ 已匯入 " + 資料.length + " 筆訂單！\n工作表：" + 表名);
+    safeAlert("✅ 已匯入 " + 資料.length + " 筆訂單！\n工作表：" + 表名);
 
   } catch (錯誤) {
     Logger.log("❌ 匯入錯誤：" + 錯誤.message);
@@ -257,7 +257,7 @@ function 批次更新庫存() {
   try {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("庫存資料");
     if (!sheet) {
-      SpreadsheetApp.getUi().alert("❌ 找不到「庫存資料」");
+      safeAlert("❌ 找不到「庫存資料」");
       return;
     }
 
@@ -307,7 +307,7 @@ function 批次更新庫存() {
     sheet.getRange(總計列, 6).setNumberFormat("#,##0").setFontWeight("bold").setBackground("#e8f5e9");
 
     Logger.log("✅ 庫存更新完成！總庫存值：NT$" + 總庫存值.toLocaleString());
-    SpreadsheetApp.getUi().alert("✅ 庫存更新完成！\n總庫存值：NT$ " + 總庫存值.toLocaleString());
+    safeAlert("✅ 庫存更新完成！\n總庫存值：NT$ " + 總庫存值.toLocaleString());
 
   } catch (錯誤) {
     Logger.log("❌ 錯誤：" + 錯誤.message);
@@ -349,7 +349,7 @@ function 初始化庫存資料() {
   sheet.getRange(2, 1, 資料.length, 7).setValues(資料);
 
   var 標題範圍 = sheet.getRange("A1:G1");
-  標題範圍.setBackground("#ff6d01");
+  標題範圍.setBackground("#673ab7"); // 紫色風格
   標題範圍.setFontColor("#ffffff");
   標題範圍.setFontWeight("bold");
   標題範圍.setHorizontalAlignment("center");
@@ -359,7 +359,18 @@ function 初始化庫存資料() {
   for (var i = 1; i <= 7; i++) sheet.autoResizeColumn(i);
 
   Logger.log("✅ 庫存資料已建立！");
-  SpreadsheetApp.getUi().alert("✅ 庫存資料已建立！\n請執行「批次更新庫存」計算結果。");
+  safeAlert("✅ 庫存資料已建立！\n請執行「批次更新庫存」計算結果。");
+}
+
+/**
+ * 安全顯示提示視窗 (防止在背景執行時報錯)
+ */
+function safeAlert(message) {
+  try {
+    SpreadsheetApp.getUi().alert(message);
+  } catch (e) {
+    Logger.log("📢 [背景提示] " + message);
+  }
 }
 
 // ============================================================
