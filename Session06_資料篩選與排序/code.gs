@@ -53,11 +53,11 @@ function 篩選示範() {
   });
   Logger.log("\n👤 " + 指定業務 + " 的訂單：" + 業務訂單.length + " 筆");
 
-  // --- 篩選 3：多條件篩選（金額 > 3000 且 本月的訂單）---
+  // --- 篩選 3：多條件篩選（金額 > 5000 且 本月的訂單）---
   var 今天 = new Date();
   var 本月訂單 = 銷售.filter(function(item) {
     var 訂單日期 = new Date(item["日期"]);
-    return item["金額"] > 3000 &&
+    return item["金額"] > 5000 &&
            訂單日期.getMonth() === 今天.getMonth() &&
            訂單日期.getFullYear() === 今天.getFullYear();
   });
@@ -289,10 +289,10 @@ function 匯出篩選結果() {
     var 資料 = sheet.getDataRange().getValues();
     var 標題 = 資料[0];
 
-    // 篩選：金額 > 3000 的訂單
+    // 篩選：金額 > 5000 的訂單
     var 篩選結果 = [];
     for (var i = 1; i < 資料.length; i++) {
-      if (資料[i][4] > 3000) {
+      if (資料[i][4] > 5000) {
         篩選結果.push(資料[i]);
       }
     }
@@ -318,11 +318,53 @@ function 匯出篩選結果() {
     匯出表.setFrozenRows(1);
     for (var c = 1; c <= 標題.length; c++) 匯出表.autoResizeColumn(c);
 
-    SpreadsheetApp.getUi().alert("✅ 已匯出 " + 篩選結果.length + " 筆金額 > $3,000 的訂單。");
+    SpreadsheetApp.getUi().alert("✅ 已匯出 " + 篩選結果.length + " 筆金額 > $5,000 的訂單。");
 
   } catch (錯誤) {
     Logger.log("❌ 錯誤：" + 錯誤.message);
   }
+}
+
+/**
+ * 實作：篩選買最多的前5名客戶
+ */
+function 篩選前五名客戶() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("銷售紀錄");
+  if (!sheet) {
+    SpreadsheetApp.getUi().alert("❌ 請先執行「初始化銷售資料」");
+    return;
+  }
+
+  var 資料 = sheet.getDataRange().getValues();
+  
+  // 1. 彙整各客戶的總消費金額
+  var 客戶總額 = {};
+  for (var i = 1; i < 資料.length; i++) {
+    var 客戶名 = 資料[i][1]; // B 欄：客戶
+    var 金額 = 資料[i][4];   // E 欄：金額
+    if (!客戶總額[客戶名]) 客戶總額[客戶名] = 0;
+    客戶總額[客戶名] += 金額;
+  }
+
+  // 2. 轉為陣列並排序
+  var 客戶列表 = [];
+  for (var key in 客戶總額) {
+    客戶列表.push({ 姓名: key, 總額: 客戶總額[key] });
+  }
+  客戶列表.sort(function(a, b) { return b.總額 - a.總額; });
+
+  // 3. 取得前五名
+  var 前五名 = 客戶列表.slice(0, 5);
+
+  // 4. 輸出結果
+  var 訊息 = "🏆 買最多的前五名客戶：\n\n";
+  前五名.forEach(function(item, index) {
+    訊息 += (index + 1) + ". " + item.姓名 + "：$" + item.總額.toLocaleString() + "\n";
+  });
+
+  Logger.log(訊息);
+  SpreadsheetApp.getUi().alert(訊息);
 }
 
 // ============================================================
@@ -374,6 +416,7 @@ function onOpen() {
     .addItem("📦 初始化銷售資料", "初始化銷售資料")
     .addItem("🔍 篩選示範", "篩選示範")
     .addItem("📶 排序示範", "排序示範")
+    .addItem("🏆 篩選前五名客戶", "篩選前五名客戶")
     .addSeparator()
     .addItem("📊 生成銷售摘要", "生成銷售摘要")
     .addItem("🧹 自動資料清理", "自動資料清理")

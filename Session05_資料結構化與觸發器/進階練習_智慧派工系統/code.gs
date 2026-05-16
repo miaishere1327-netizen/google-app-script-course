@@ -42,7 +42,6 @@ function 智慧派工() {
     var 員工資料 = 員工表.getDataRange().getValues();
     var 員工清單 = [];
     
-    // 將員工資料轉為結構化物件，並記錄原本所在的「列號」方便更新
     for (var i = 1; i < 員工資料.length; i++) {
       員工清單.push({
         列號: i + 1, 
@@ -66,7 +65,7 @@ function 智慧派工() {
     }
 
     var 指派結果 = [];
-    // 取得原始二維陣列，以便在記憶體中更新後「批次寫回」，提升效能
+    var 預警清單 = []; // [新增] 存放加班預警訊息
     var 任務陣列 = 任務表.getDataRange().getValues(); 
 
     // ==========================================
@@ -76,29 +75,30 @@ function 智慧派工() {
       var 任務名稱 = 任務["任務名稱"];
       var 需求部門 = 任務["部門"];
 
-      // 條件 A：必須是同部門的員工
-      // 條件 B：該員工的目前任務數必須小於最大承載量
       var 可用員工 = 員工清單.filter(function(員工) { 
         return (員工.部門 === 需求部門) && (員工.目前任務數 < 員工.最大承載); 
       });
 
       if (可用員工.length === 0) {
         指派結果.push("⚠️ " + 任務名稱 + " → ❌ " + 需求部門 + " 無可用人力");
-        return; // 跳過這個任務，處理下一個
+        return;
       }
 
-      // 條件 C：優先分配給「目前任務數」最少的員工（最少負擔優先）
       可用員工.sort(function(a, b) { 
         return a.目前任務數 - b.目前任務數; 
       });
       
-      var 最佳人選 = 可用員工[0]; // 排序後的第一筆就是任務最少的
+      var 最佳人選 = 可用員工[0];
 
       // 執行指派
-      最佳人選.目前任務數++; // 增加員工負擔
+      最佳人選.目前任務數++; 
       指派結果.push("✅ " + 任務名稱 + " → 👤 " + 最佳人選.姓名);
 
-      // 同步更新任務表的二維陣列（注意：第 3 欄「負責人」的 index 是 2）
+      // [新增] 加班預警檢查
+      if (最佳人選.目前任務數 >= 最佳人選.最大承載) {
+        預警清單.push("🔥 加班預警：" + 最佳人選.姓名 + " 已達上限 (" + 最佳人選.目前任務數 + "/" + 最佳人選.最大承載 + ")");
+      }
+
       for (var r = 1; r < 任務陣列.length; r++) {
         if (任務陣列[r][0] === 任務名稱) {
           任務陣列[r][2] = 最佳人選.姓名; 
@@ -108,20 +108,56 @@ function 智慧派工() {
     });
 
     // ==========================================
-    // 步驟 4：批次寫回試算表（最佳效能做法）
+    // 步驟 4：批次寫回試算表
     // ==========================================
-    // 1. 寫回任務表 (一次更新整個範圍)
     任務表.getRange(1, 1, 任務陣列.length, 任務陣列[0].length).setValues(任務陣列);
 
-    // 2. 寫回員工負擔表 (更新 C 欄的目前任務數)
+    // [修改] 寫回員工負擔表並更新顏色
     for (var k = 0; k < 員工清單.length; k++) {
-      員工表.getRange(員工清單[k].列號, 3).setValue(員工清單[k].目前任務數);
+      var cell = 員工表.getRange(員工清單[k].列號, 3);
+      cell.setValue(員工清單[k].目前任務數);
+      
+      if (員工清單[k].目前任務數 >= 員工清單[k].最大承載) {
+        cell.setBackground("#ffcdd2").setFontColor("#b71c1c"); // 警告紅
+      } else {
+        cell.setBackground(null).setFontColor(null);
+      }
     }
 
-    SpreadsheetApp.getUi().alert("🎯 智慧派工完成！\n\n" + 指派結果.join("\n"));
+    var msg = "🎯 智慧派工完成！\n\n" + 指派結果.join("\n");
+    if (預警清單.length > 0) msg += "\n\n----------\n" + 預警清單.join("\n");
+    
+    SpreadsheetApp.getUi().alert(msg);
 
   } catch (錯誤) { 
     Logger.log("❌ 發生錯誤：" + 錯誤.message); 
+  }
+}
+
+/**
+ * [新增] 檢查所有員工負擔狀況
+ */
+function 檢查員工負擔() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("員工負擔");
+  if (!sheet) return;
+
+  var 資料 = sheet.getDataRange().getValues();
+  var 警告 = [];
+
+  for (var i = 1; i < 資料.length; i++) {
+    var 姓名 = 資料[i][0];
+    var 目前 = 資料[i][2];
+    var 最大 = 資料[i][3];
+    if (目前 >= 最大) {
+      警告.push("🔴 " + 姓名 + " (" + 目前 + "/" + 最大 + ")");
+    }
+  }
+
+  if (警告.length > 0) {
+    SpreadsheetApp.getUi().alert("⚠️ 員工加班預警：\n以下人員負擔已達上限：\n\n" + 警告.join("\n"));
+  } else {
+    SpreadsheetApp.getUi().alert("✅ 目前所有員工負擔皆在正常範圍內。");
   }
 }
 
@@ -213,5 +249,6 @@ function onOpen() {
     .addItem("📦 初始化任務資料", "初始化任務資料")
     .addItem("🎯 智慧派工", "智慧派工")
     .addItem("⏰ 逾期提醒", "逾期提醒")
+    .addItem("🔥 加班預警檢查", "檢查員工負擔")
     .addToUi();
 }
